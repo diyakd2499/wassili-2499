@@ -52,32 +52,43 @@
 
 <div class="login-box">
     <h2>👑 دخول المدير العام</h2>
-    <input type="text" id="phone" placeholder="رقم الهاتف (0000000000)">
+    <input type="email" id="email" placeholder="name@example.com">
     <input type="password" id="password" placeholder="كلمة المرور">
+    
     <button onclick="adminLogin()">تسجيل الدخول</button>
     <div class="error" id="error-msg">بيانات الدخول غير صحيحة!</div>
 </div>
 
 <script>
     async function adminLogin() {
-        // التعديل هنا: نأخذ قيمة الهاتف
-        const phone = document.getElementById('phone').value;
-        const password = document.getElementById('password').value;
         const errorMsg = document.getElementById('error-msg');
+        
+        // التعديل 2: جلب القيمة من حقل الإيميل الصحيح
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        // التحقق المبدئي قبل الإرسال
+        if (!email || !password) {
+            errorMsg.style.display = 'block';
+            errorMsg.innerText = "الرجاء إدخال البريد الإلكتروني وكلمة المرور";
+            return;
+        }
 
         try {
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // التعديل هنا: نرسل phone بدلاً من email
-                body: JSON.stringify({ phone, password }) 
+                // التعديل 3: إرسال المتغير email الذي ينتظره السيرفر
+                body: JSON.stringify({ email, password }) 
             });
 
             const data = await res.json();
 
             if (res.ok) {
+                // التحقق من أن المستخدم هو Admin
                 if (data.user.role === 'admin') {
                     localStorage.setItem('adminToken', data.token);
+                    localStorage.setItem('adminName', data.user.name);
                     window.location.href = 'admin.html';
                 } else {
                     errorMsg.style.display = 'block';

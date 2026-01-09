@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مهامي الجارية | وَصِّلِي</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; direction: rtl; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: #2c3e50; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .btn-back { background: #7f8c8d; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px; text-decoration: none; }
+        .container { max-width: 800px; margin: auto; }
+        .order-card { background: white; padding: 20px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-right: 5px solid #e67e22; }
+        .order-info { margin-bottom: 10px; font-size: 16px; }
+        .btn-deliver { background: #27ae60; color: white; border: none; padding: 10px 20px; width: 100%; font-size: 18px; cursor: pointer; border-radius: 5px; margin-top: 10px; }
+        .btn-deliver:hover { background: #219150; }
+        h2 { text-align: center; color: #2c3e50; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h3>🚴‍♂️ مهامي الحالية</h3>
+        <a href="captain-orders.html" class="btn-back">عودة للطلبات المتاحة</a>
+    </div>
+
+    <div class="container" id="missions-container">
+        <p style="text-align: center;">جاري تحميل المهام...</p>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('captainToken');
+        if (!token) window.location.href = 'captain-login.html';
+
+        async function fetchMissions() {
+            try {
+                const response = await fetch('/api/orders/my-missions', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+
+                const orders = await response.json();
+                const container = document.getElementById('missions-container');
+                container.innerHTML = '';
+
+                if (orders.length === 0) {
+                    container.innerHTML = '<p style="text-align: center;">ليس لديك مهام قيد التوصيل حالياً 🤷‍♂️<br><a href="captain-orders.html">ابحث عن طلبات جديدة</a></p>';
+                    return;
+                }
+
+                orders.forEach(order => {
+                    const clientName = order.customer ? order.customer.name : 'عميل';
+                    const clientPhone = order.customer ? order.customer.phone : 'غير متوفر';
+
+                    const card = document.createElement('div');
+                    card.className = 'order-card';
+                    card.innerHTML = `
+                        <div class="order-info"><strong>👤 العميل:</strong> ${clientName} (${clientPhone})</div>
+                        <div class="order-info"><strong>📦 التفاصيل:</strong> ${order.details}</div>
+                        <div class="order-info"><strong>📍 من:</strong> ${order.pickupLocation}</div>
+                        <div class="order-info"><strong>🏁 إلى:</strong> ${order.dropoffLocation}</div>
+                        <div class="order-info" style="color:#e67e22; font-weight:bold;">💰 التحصيل: ${order.price} جنيه</div>
+                        <hr>
+                        <button class="btn-deliver" onclick="markDelivered('${order._id}')">✅ تم التسليم واستلام الكاش</button>
+                    `;
+                    container.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        fetchMissions();
+
+        // دالة إنهاء الطلب (التسليم)
+        async function markDelivered(orderId) {
+            if(!confirm("هل استلمت المبلغ وسلمت الطلب؟")) return;
+
+            try {
+                const res = await fetch(`/api/orders/${orderId}/deliver`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (res.ok) {
+                    alert("عافية عليك! تم توصيل الطلب بنجاح 🎉");
+                    fetchMissions(); // تحديث القائمة
+                } else {
+                    alert("حدث خطأ أثناء التسليم");
+                }
+            } catch (err) {
+                alert("خطأ في الاتصال");
+            }
+        }
+    </script>
+
+</body>
+</html>

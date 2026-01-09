@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>طلب جديد | وصل-لي</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;900&display=swap" rel="stylesheet">
+</head>
+<body style="background-color: #f8f9fa;">
+
+    <header>
+        <a href="index.html" class="logo"><span>وصل-لي</span></a>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <span id="welcome-msg" style="font-weight: bold; color: var(--secondary);">مرحباً</span>
+            <button onclick="logout()" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-weight:bold;">خروج 🚪</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        
+        <div class="form-card">
+            <div class="card-header">
+                <h3>🛒 إنشاء طلب جديد</h3>
+            </div>
+            
+            <div class="input-group">
+                <label>📍 موقع الاستلام (من وين؟)</label>
+                <input type="text" id="pickup" placeholder="مثال: السوق العربي، عمارة الذهب">
+            </div>
+
+            <div class="input-group">
+                <label>🏁 موقع التوصيل (لي وين؟)</label>
+                <input type="text" id="dropoff" placeholder="مثال: الفتيحاب، مربع 5">
+            </div>
+
+            <div class="input-group">
+                <label>📦 تفاصيل الطلب (شنو المشوار؟)</label>
+                <textarea id="details" rows="3" placeholder="مثال: توصيل ظرف مستندات، أو طلبية أكل..."></textarea>
+            </div>
+
+            <div class="input-group">
+                <label>💰 السعر المقترح (جنيه)</label>
+                <input type="number" id="price" placeholder="مثال: 3000">
+            </div>
+
+            <button class="btn-block btn-primary" onclick="createOrder()">🚀 إرسال الطلب</button>
+        </div>
+
+        <div style="margin-top: 20px; text-align: center;">
+            <a href="client-my-orders.html" class="btn-hero" style="background: var(--secondary); color: white; padding: 10px 20px; font-size: 1rem;">📋 عرض طلباتي السابقة</a>
+        </div>
+
+    </div>
+
+<script>
+    const token = localStorage.getItem('clientToken');
+    const userName = localStorage.getItem('userName');
+
+    if (!token) window.location.href = 'client-login.html';
+    
+    // عرض اسم المستخدم
+    if(userName) document.getElementById('welcome-msg').innerText = `مرحباً، ${userName}`;
+
+    function logout() {
+        localStorage.removeItem('clientToken');
+        window.location.href = 'client-login.html';
+    }
+
+    async function createOrder() {
+        const pickupLocation = document.getElementById('pickup').value;
+        const dropoffLocation = document.getElementById('dropoff').value;
+        const price = document.getElementById('price').value;
+        const details = document.getElementById('details').value;
+
+        if (!pickupLocation || !dropoffLocation || !price) {
+            alert('الرجاء ملء البيانات الأساسية');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({ pickupLocation, dropoffLocation, price, details })
+            });
+
+            if (res.ok) {
+                alert('✅ تم إرسال طلبك بنجاح! سيقبل الكابتن طلبك قريباً.');
+                window.location.href = 'client-my-orders.html'; // توجيه لصفحة المتابعة
+            } else {
+                alert('حدث خطأ أثناء إرسال الطلب');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('خطأ في الاتصال');
+        }
+    }
+</script>
+
+</body>
+</html>

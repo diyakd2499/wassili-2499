@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حساب جديد | وصل-لي</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+
+<div class="auth-container">
+    <div class="auth-box">
+        <a href="index.html" class="logo" style="justify-content: center; margin-bottom: 20px;">
+            <img src="logo.png" alt="وصل-لي" style="height: 60px;">
+        </a>
+        
+        <div id="register-step">
+            <h2>إنشاء حساب عميل 👤</h2>
+            <div class="input-group">
+                <label>الاسم</label>
+                <input type="text" id="name" placeholder="محمد أحمد">
+            </div>
+            <div class="input-group">
+                <label>الهاتف (09 أو 01)</label>
+                <input type="text" id="phone" placeholder="09xxxxxxxx">
+            </div>
+            <div class="input-group">
+                <label>الإيميل</label>
+                <input type="email" id="email" placeholder="name@example.com">
+            </div>
+            <div class="input-group">
+                <label>كلمة المرور</label>
+                <input type="password" id="password" placeholder="******">
+            </div>
+            <button class="btn-block btn-primary" onclick="registerStep()">إنشاء الحساب وإرسال الكود</button>
+            <p style="margin-top: 20px;">لديك حساب؟ <a href="client-login.html" style="font-weight:bold;">دخول</a></p>
+        </div>
+
+        <div id="verify-step" style="display: none;">
+            <h2>تأكيد الإيميل 📧</h2>
+            <p>أدخل الكود المرسل إلى بريدك: <br> <b id="display-email"></b></p>
+            
+            <div class="input-group">
+                <input type="text" id="verificationCode" placeholder="xxxxxx" maxlength="6" style="text-align:center; letter-spacing: 5px; font-size: 20px;">
+            </div>
+
+            <button class="btn-block btn-primary" onclick="verifyStep()">تفعيل الحساب ✅</button>
+            
+            <div style="margin-top: 20px;">
+                <button id="resendBtn" onclick="resendCode()" style="background:none; border:none; color:gray; cursor:not-allowed;" disabled>
+                    إعادة إرسال الكود (<span id="timer">30</span>)
+                </button>
+            </div>
+        </div>
+
+        <div id="error" style="color:red; margin-top:15px; font-size:14px; display:none; font-weight:bold;"></div>
+    </div>
+</div>
+
+<script>
+    let countdownInterval;
+
+    // دالة العداد التنازلي
+    function startTimer() {
+        let timeLeft = 30; // 30 ثانية
+        const btn = document.getElementById('resendBtn');
+        const timerSpan = document.getElementById('timer');
+        
+        btn.disabled = true;
+        btn.style.color = "gray";
+        btn.style.cursor = "not-allowed";
+        btn.innerHTML = `إعادة إرسال الكود (<span id="timer">${timeLeft}</span>)`;
+        
+        clearInterval(countdownInterval); 
+        
+        countdownInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer').innerText = timeLeft;
+            
+            if (timeLeft <= 0) {
+                clearInterval(countdownInterval);
+                btn.disabled = false;
+                btn.style.color = "var(--primary)";
+                btn.style.cursor = "pointer";
+                btn.innerText = "إعادة إرسال الكود الآن 🔄";
+            }
+        }, 1000);
+    }
+
+    // 1️⃣ دالة التسجيل (لأول مرة)
+    async function registerStep() {
+        const name = document.getElementById('name').value;
+        const phone = document.getElementById('phone').value;
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const errorDiv = document.getElementById('error');
+        
+        // تحقق بسيط
+        if(!name || !phone || !email || !password) {
+            errorDiv.innerText = "الرجاء ملء جميع الحقول";
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        errorDiv.style.display = 'none';
+        
+        // زر تحميل
+        const regBtn = document.querySelector('#register-step button');
+        const oldText = regBtn.innerText;
+        regBtn.innerText = "جاري المعالجة...";
+        regBtn.disabled = true;
+
+        try {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, phone, email, password, role: 'client' })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                // إخفاء التسجيل وإظهار التحقق
+                document.getElementById('register-step').style.display = 'none';
+                document.getElementById('verify-step').style.display = 'block';
+                document.getElementById('display-email').innerText = email;
+                
+                Swal.fire('تم!', 'تم إرسال الكود لبريدك الإلكتروني', 'success');
+                startTimer(); 
+            } else {
+                errorDiv.innerText = data.message;
+                errorDiv.style.display = 'block';
+            }
+        } catch (err) { 
+            errorDiv.innerText = "خطأ في الاتصال بالسيرفر"; 
+            errorDiv.style.display = 'block'; 
+        } finally {
+            regBtn.innerText = oldText;
+            regBtn.disabled = false;
+        }
+    }
+
+    // 2️⃣ دالة إعادة الإرسال (التصحيح هنا) ✅
+    async function resendCode() {
+        const email = document.getElementById('email').value;
+        const btn = document.getElementById('resendBtn');
+        
+        btn.innerText = "جاري الإرسال...";
+        
+        try {
+            // 👇 نستخدم رابط إعادة الإرسال وليس التسجيل
+            const res = await fetch('/api/auth/resend-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                Swal.fire('تم!', 'تم إرسال كود جديد. راجع الإيميل.', 'success');
+                startTimer(); // إعادة تشغيل العداد
+            } else {
+                Swal.fire('خطأ', data.message, 'error');
+                btn.innerText = "إعادة إرسال الكود الآن"; // إرجاع النص في حال الخطأ
+            }
+        } catch (err) {
+            console.error(err);
+            Swal.fire('خطأ', 'فشل الاتصال', 'error');
+        }
+    }
+
+    // 3️⃣ دالة تفعيل الحساب
+    async function verifyStep() {
+        const email = document.getElementById('email').value;
+        const code = document.getElementById('verificationCode').value;
+        
+        if(!code) { Swal.fire('تنبيه', 'ادخل الكود', 'warning'); return; }
+
+        try {
+            const res = await fetch('/api/auth/verify-email', {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email, code })
+            });
+            
+            const data = await res.json();
+            
+            if(res.ok) {
+                // ✅ نجاح التفعيل
+                Swal.fire({
+                    title: 'تم تفعيل الحساب!',
+                    text: 'سجل دخولك الآن للبدء',
+                    icon: 'success'
+                }).then(() => {
+                    // توجيه لصفحة تسجيل الدخول لأن التفعيل لا يرجع توكن
+                    window.location.href = 'client-login.html';
+                });
+            } else {
+                Swal.fire('خطأ', data.message || 'الكود غير صحيح', 'error');
+            }
+        } catch(err) { 
+            Swal.fire('خطأ', 'حدث خطأ غير متوقع', 'error'); 
+        }
+    }
+</script>
+
+</body>
+</html>

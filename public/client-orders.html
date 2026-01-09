@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>طلب جديد | وصل-لي</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;900&display=swap" rel="stylesheet">
+    <style>
+        .order-flow { position: relative; padding-right: 30px; }
+        .order-flow::before {
+            content: ''; position: absolute; right: 11px; top: 40px; bottom: 150px;
+            width: 2px; background: #ddd; z-index: 0;
+        }
+        .location-group { position: relative; margin-bottom: 30px; background: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #eee; }
+        .loc-icon {
+            position: absolute; right: -42px; top: 20px; width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center; background: white;
+            z-index: 1; font-size: 20px; border-radius: 50%; border: 2px solid #eee;
+        }
+        .sub-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .sub-inputs input { font-size: 14px; padding: 8px; }
+        .price-box { background: #e8f5e9; padding: 15px; border-radius: 10px; border: 1px solid #c8e6c9; margin-bottom: 20px; }
+        
+        /* تنسيق صندوق التنبيهات */
+        #alert-box {
+            display: none;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body style="background-color: #f4f6f9;">
+
+    <header>
+        <a href="index.html" class="logo"><span>وصل-لي</span></a>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <span id="user-name-display" style="font-weight: bold; color: var(--secondary); display: none;">مرحباً</span>
+            <button onclick="logout()" style="color: #c0392b; background:none; border:none; cursor:pointer; font-weight:bold;">خروج 🚪</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        
+        <div id="alert-box"></div>
+
+        <div class="form-card">
+            <div class="card-header">
+                <h3>📍 بيانات الطلب</h3>
+                <p style="color:#777; font-size:13px;">ادخل بيانات دقيقة ليسهل على الكابتن الوصول</p>
+            </div>
+            
+            <div class="order-flow">
+                
+                <div class="location-group">
+                    <div class="loc-icon">🟢</div>
+                    <label style="font-weight:bold; color:var(--primary);">من وين نستلم؟</label>
+                    <input type="text" id="pickup-addr" placeholder="وصف المكان (مثال: السوق العربي، عمارة الذهب)" style="margin-top:5px;">
+                    <div class="sub-inputs">
+                        <input type="text" id="pickup-name" placeholder="اسم الشخص (هناك)">
+                        <input type="text" id="pickup-phone" placeholder="رقم هاتفه (09.. / 01..)">
+                    </div>
+                </div>
+
+                <div class="location-group">
+                    <div class="loc-icon">🏁</div>
+                    <label style="font-weight:bold; color:#c0392b;">لي وين نوصل؟</label>
+                    <input type="text" id="dropoff-addr" placeholder="وصف المكان (مثال: الفتيحاب، مربع 5)" style="margin-top:5px;">
+                    <div class="sub-inputs">
+                        <input type="text" id="dropoff-name" placeholder="اسم المستلم">
+                        <input type="text" id="dropoff-phone" placeholder="رقم هاتفه (09.. / 01..)">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>📦 شنو الغرض؟</label>
+                    <textarea id="details" rows="2" placeholder="ظرف، أكل، كيس دواء..."></textarea>
+                </div>
+
+                <div class="price-box">
+                    <label style="font-weight:bold;">📏 تقدير المسافة (عشان نحدد سعر عادل)</label>
+                    <select id="distance-type" onchange="calculatePrice()" style="width:100%; padding:10px; margin:10px 0; border-radius:5px;">
+                        <option value="">-- اختر المسافة التقريبية --</option>
+                        <option value="short">🚲 مشوار قريب (داخل الحي)</option>
+                        <option value="medium">🛵 مشوار وسط (بين الأحياء)</option>
+                        <option value="long">🏎️ مشوار بعيد (أطراف العاصمة)</option>
+                    </select>
+
+                    <label>💰 السعر المقترح (جنيه)</label>
+                    <input type="number" id="price" placeholder="سيظهر السعر تلقائياً هنا">
+                </div>
+            </div>
+
+            <button id="submit-btn" class="btn-block btn-primary" onclick="createOrder()">🚀 اطلب الكابتن الآن</button>
+        </div>
+        
+        <div class="dashboard-nav" style="text-align: center; margin-top: 20px;">
+            <a href="client-my-orders.html" class="btn-outline">📋 متابعة طلباتي السابقة</a>
+        </div>
+    </div>
+
+<script>
+    const token = localStorage.getItem('clientToken');
+    const userName = localStorage.getItem('userName');
+    
+    // التحقق من التوكن
+    if (!token) window.location.href = 'client-login.html';
+    if (userName) {
+        document.getElementById('user-name-display').innerText = `مرحباً، ${userName}`;
+        document.getElementById('user-name-display').style.display = 'block';
+    }
+
+    // دالة فحص الرقم السوداني
+    function isSudanPhone(phone) {
+        // يقبل الأرقام التي تبدأ بـ 01 أو 09 وتتكون من 10 أرقام
+        return /^(01|09)\d{8}$/.test(phone);
+    }
+
+    function calculatePrice() {
+        const type = document.getElementById('distance-type').value;
+        const priceInput = document.getElementById('price');
+        let suggestedPrice = '';
+        if (type === 'short') suggestedPrice = 3000;
+        else if (type === 'medium') suggestedPrice = 6000;
+        else if (type === 'long') suggestedPrice = 10000;
+        if (suggestedPrice) {
+            priceInput.value = suggestedPrice;
+            priceInput.style.backgroundColor = '#fff3cd';
+            setTimeout(() => { priceInput.style.backgroundColor = 'white'; }, 500);
+        }
+    }
+
+    // 🔔 دالة عرض التنبيهات المتطورة
+    function showAlert(msg, type) {
+        const box = document.getElementById('alert-box');
+        box.style.display = 'block';
+        box.innerText = msg;
+        
+        // الانتقال لأعلى الصفحة ليقرأ المستخدم الرسالة
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        if (type === 'success') {
+            box.style.backgroundColor = '#d4edda';
+            box.style.color = '#155724';
+            box.style.border = '1px solid #c3e6cb';
+        } else {
+            box.style.backgroundColor = '#f8d7da';
+            box.style.color = '#721c24';
+            box.style.border = '1px solid #f5c6cb';
+        }
+        
+        // إخفاء الرسالة بعد 5 ثواني
+        setTimeout(() => { box.style.display = 'none'; }, 5000);
+    }
+
+    function logout() {
+        if(confirm("خروج؟")) { localStorage.clear(); window.location.href = 'client-login.html'; }
+    }
+
+    async function createOrder() {
+        const btn = document.getElementById('submit-btn');
+
+        // 🔒 منع التكرار: إذا كان الزر مقفلاً، لا تفعل شيئاً
+        if (btn.disabled) return;
+
+        // إخفاء التنبيه السابق
+        document.getElementById('alert-box').style.display = 'none';
+
+        const pickup = {
+            address: document.getElementById('pickup-addr').value.trim(),
+            contactName: document.getElementById('pickup-name').value.trim(),
+            contactPhone: document.getElementById('pickup-phone').value.trim()
+        };
+        const dropoff = {
+            address: document.getElementById('dropoff-addr').value.trim(),
+            receiverName: document.getElementById('dropoff-name').value.trim(),
+            receiverPhone: document.getElementById('dropoff-phone').value.trim()
+        };
+        const details = document.getElementById('details').value.trim();
+        const distanceType = document.getElementById('distance-type').value;
+        const price = document.getElementById('price').value;
+
+        // 🛑 1. التحقق من الحقول الفارغة
+        if (!pickup.address || !pickup.contactName || !pickup.contactPhone ||
+            !dropoff.address || !dropoff.receiverName || !dropoff.receiverPhone ||
+            !details || !price || !distanceType) {
+            showAlert('⚠️ عذراً، يجب ملء جميع الخانات!', 'error');
+            return;
+        }
+
+        // 🛑 2. التحقق من صحة الأرقام
+        if (!isSudanPhone(pickup.contactPhone)) {
+            showAlert('⚠️ رقم الاستلام خطأ! يجب أن يكون 10 أرقام ويبدأ بـ 09 أو 01', 'error');
+            return;
+        }
+        if (!isSudanPhone(dropoff.receiverPhone)) {
+            showAlert('⚠️ رقم المستلم خطأ! يجب أن يكون 10 أرقام ويبدأ بـ 09 أو 01', 'error');
+            return;
+        }
+
+        // ✅ كل شيء تمام؟ نقفل الزر الآن
+        btn.disabled = true;
+        btn.innerText = "⏳ جاري الإرسال...";
+        btn.style.opacity = "0.7";
+
+        try {
+            const res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({ pickup, dropoff, details, distanceType, price })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                showAlert('✅ تم إرسال الطلب بنجاح! جاري تحويلك لصفحة المتابعة...', 'success');
+                // ننتظر ثانيتين ثم نحول
+                setTimeout(() => { window.location.href = 'client-my-orders.html'; }, 2000);
+            } else {
+                showAlert('❌ ' + (data.message || 'حدث خطأ في السيرفر'), 'error');
+                // 🔓 إعادة فتح الزر في حالة الخطأ
+                btn.disabled = false;
+                btn.innerText = "🚀 اطلب الكابتن الآن";
+                btn.style.opacity = "1";
+            }
+        } catch (err) {
+            showAlert('❌ خطأ في الاتصال، تأكد من الإنترنت', 'error');
+            // 🔓 إعادة فتح الزر
+            btn.disabled = false;
+            btn.innerText = "🚀 اطلب الكابتن الآن";
+            btn.style.opacity = "1";
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const path = require('path'); // 1. استدعاء مكتبة التعامل مع المسارات
 const { errorHandler } = require('./utils/errorHandler');
 
 // تحميل متغيرات البيئة
@@ -21,16 +22,22 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // ==========================================
+// إعداد ملفات الموقع (Frontend)
+// ==========================================
+// هذا السطر يخبر السيرفر أن ملفات الموقع موجودة في مجلد public
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ==========================================
 // اتصال قاعدة البيانات
 // ==========================================
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/wassili', {
-
+mongoose.connect(process.env.MONGO_URI , {
+    // تم إزالة الخيارات القديمة لأنها لم تعد مدعومة في النسخ الجديدة
 })
     .then(() => console.log('✅ تم الاتصال بقاعدة البيانات بنجاح'))
     .catch(err => console.error('❌ خطأ في الاتصال بقاعدة البيانات:', err.message));
 
 // ==========================================
-// Routes
+// Routes (روابط الـ API)
 // ==========================================
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/orders', require('./routes/orders'));
@@ -47,10 +54,11 @@ app.get('/health', (req, res) => {
 });
 
 // ==========================================
-// 404 Handler
+// توجيه الصفحة الرئيسية (مهم جداً)
 // ==========================================
-app.use((req, res) => {
-    res.status(404).json({ success: false, message: 'المسار غير موجود' });
+// إذا طلب المستخدم الموقع ولم يطلب API، نعطيه ملف index.html
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ==========================================
@@ -63,8 +71,7 @@ app.use(errorHandler);
 // ==========================================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`🚀 الخادم يعمل على المنفذ ${PORT}`);
-    console.log(`📍 الرابط: http://localhost:${PORT}`);
+    console.log(`🚀 الموقع يعمل الآن على الرابط: http://localhost:${PORT}`);
 });
 
 module.exports = app;
